@@ -1,0 +1,28 @@
+# Ingestion
+boto3
+psycopg2-binary
+sqlalchemy
+gspread
+google-auth
+requests
+faker
+
+# Delta Lake + Spark
+delta-spark==3.0.0
+pyspark==3.5.0
+
+# Data Quality
+great-expectations
+
+# Kafka
+kafka-python
+
+# Snowflake
+snowflake-connector-python
+snowflake-sqlalchemy
+
+# Utilities
+python-dotenv
+pandas
+pyarrow
+numpy
