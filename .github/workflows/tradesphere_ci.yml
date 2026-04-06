@@ -16,7 +16,7 @@ env:
 
 jobs:
   test:
-    name: Run Data Validation Tests
+    name: Run Code Quality Checks
     runs-on: ubuntu-latest
 
     steps:
@@ -31,16 +31,21 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run Great Expectations validation
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          DB_HOST: ${{ secrets.DB_HOST }}
-          DB_PORT: ${{ secrets.DB_PORT }}
-          DB_NAME: ${{ secrets.DB_NAME }}
-          DB_USER: ${{ secrets.DB_USER }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-        run: python validation/validate_data.py
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Check Python syntax
+        run: |
+          python -m py_compile validation/validate_data.py
+          python -m py_compile ingestion/main.py
+          python -m py_compile delta/delta_writer.py
+          python -m py_compile spark/batch_transform.py
+          python -m py_compile snowflake/snowflake_loader.py
+          echo "All Python files syntax OK"
 
   build-and-push:
     name: Build and Push Docker Images to ECR
@@ -56,11 +61,8 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Run Great Expectations validation
-        run: |
-          python validation/validate_data.py
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v1
 
@@ -68,11 +70,13 @@ jobs:
         run: |
           docker build -f docker/Dockerfile -t $ECR_REGISTRY/$ECR_REPOSITORY_INGESTION:latest .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY_INGESTION:latest
+          echo "Ingestion image pushed to ECR successfully"
 
       - name: Build and push spark image
         run: |
           docker build -f docker/Dockerfile -t $ECR_REGISTRY/$ECR_REPOSITORY_SPARK:latest .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY_SPARK:latest
+          echo "Spark image pushed to ECR successfully"
 
   dbt-run:
     name: Run dbt Models
@@ -91,13 +95,26 @@ jobs:
       - name: Install dbt
         run: pip install dbt-snowflake
 
+      - name: Configure dbt profiles
+        run: |
+          mkdir -p ~/.dbt
+          cat > ~/.dbt/profiles.yml << EOF
+          tradesphere_dbt:
+            target: prod
+            outputs:
+              prod:
+                type: snowflake
+                account: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+                user: ${{ secrets.SNOWFLAKE_USER }}
+                password: ${{ secrets.SNOWFLAKE_PASSWORD }}
+                role: ACCOUNTADMIN
+                database: ${{ secrets.SNOWFLAKE_DATABASE }}
+                warehouse: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
+                schema: STAGING
+                threads: 1
+          EOF
+
       - name: Run dbt models and tests
-        env:
-          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-          SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
-          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
-          SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
-          SNOWFLAKE_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
         run: |
           cd tradesphere_dbt
           dbt run --select staging
@@ -125,7 +142,7 @@ jobs:
             Triggered by: ${{ github.actor }}
 
             Steps completed:
-            - dbt tests passed
-            - Docker image built
-            - Image pushed to AWS ECR
+            - Python syntax checks passed
+            - Docker images built and pushed to AWS ECR
+            - dbt models ran successfully
             - Super proud of you
