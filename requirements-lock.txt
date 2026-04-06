@@ -1,5 +1,6 @@
 altair==6.0.0
 annotated-types==0.7.0
+arro3-core==0.8.0
 asn1crypto==1.5.1
 attrs==26.1.0
 boto3==1.42.78
@@ -10,6 +11,8 @@ charset-normalizer==3.4.6
 colorama==0.4.6
 cryptography==46.0.6
 delta-spark==3.0.0
+deltalake==1.5.0
+Deprecated==1.3.1
 Faker==40.11.1
 filelock==3.25.2
 google-auth==2.49.1
@@ -55,6 +58,7 @@ rpds-py==0.30.0
 ruamel.yaml==0.19.1
 s3transfer==0.16.0
 scipy==1.17.1
+setuptools==82.0.1
 six==1.17.0
 snowflake-connector-python==4.4.0
 snowflake-sqlalchemy==1.9.0
@@ -67,4 +71,5 @@ typing_extensions==4.15.0
 tzdata==2025.3
 tzlocal==5.3.1
 urllib3==2.6.3
+wrapt==2.1.2
 zipp==3.23.0
